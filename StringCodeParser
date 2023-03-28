@@ -1,0 +1,75 @@
+class_name StringCodeParser extends Object
+
+
+var symbols:Array = "[ ] ( ) - + < > = == * & % $ # @ . , / : ; ' \"".split()
+var letters:Array = "a b c d e f g h i j k l m n o p q r s t u v w x y z _".split()
+var numbers:Array = "0 1 2 3 4 5 6 7 8 9".split()
+
+var function_prefix:String = "func "
+var function_delimiter:String = "("
+var variable_prefix:String = "var "
+var constant_prefix:String = "const "
+
+
+func is_indented(string:String)->bool:
+    if string.begins_with("  ") or string.begins_with("\t"):
+        return true
+    return false
+
+
+func is_empty(string:String)->bool:
+    for x in string.length():
+        if not string[x] in [" ", "\t", "\n", "\r"]:
+            return false
+    return true
+
+
+func get_function(string:String)->String:
+    if string.find(function_prefix) != -1:
+        var parts = string.split(function_delimiter)
+        return parts[0].replace(function_prefix, "")
+    return ""
+
+
+func get_arguments(string:String):
+    var arguments = []
+
+    # Find the start of the argument list
+    var arg_start_idx = string.find("(")
+    if arg_start_idx == -1:
+        return arguments
+
+    # Find the end of the argument list
+    var arg_end_idx = string.find(")", arg_start_idx)
+    if arg_end_idx == -1:
+        return arguments
+
+    var arg_list = string.substr(arg_start_idx+1, arg_end_idx-1)
+    var refine:String = ""
+    for x in arg_list.length():
+        if arg_list[x] in letters or arg_list[x] in numbers or arg_list[x] in [",", ":"]:
+            refine+=arg_list[x]
+            
+    refine.strip_edges()
+    if refine != "":
+        arguments = refine.split(",")
+    for x in arguments.size():
+        if ":" in arguments[x]:
+            arguments[x] = arguments[x].split(":")[0]
+
+    return arguments
+
+
+func get_variable(string:String)->String:
+    if string.begins_with(variable_prefix):
+        if ":" in string:
+            var new:String = string.split(" ")[1].split(":")[0]
+            new.strip_edges()
+            return new
+        else:
+            return string.split(" ")[1]
+    return ""
+
+
+func get_variable_type(string:String):
+    pass
