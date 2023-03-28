@@ -1,0 +1,142 @@
+extends CodeEdit
+
+const GLOBAL_SCOPE:String = "Global"
+
+
+var function_names:Array
+var variable_names:Array
+var local_variables:Array
+
+var func_match:RegEx
+var var_match:RegEx
+
+var timer_length:float = 1.0
+var changed:bool = false
+var timer:float
+
+var current_line:int = 0
+var is_caret_within_function:bool = false
+var scope_name:String = GLOBAL_SCOPE
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+    code_completion_enabled = true
+    self.syntax_highlighter = GDScriptHighlighter.new()
+    self.syntax_highlighter.update_cache()
+    func_match = RegEx.new()
+    func_match.compile("func\\s(\\w+)\\(")
+    var_match = RegEx.new()
+    var_match.compile("var\\s(\\w+)")
+    var scp = StringCodeParser.new()
+    print(scp.get_arguments("func new_function(arg_a:bool, arg_b:int)"))
+
+
+func _process(delta):
+    timer += delta
+    if timer >= timer_length:
+        timer = 0.0
+        if changed:
+            parse_names()
+
+
+func parse_names():
+    function_names = []
+    variable_names = []
+    for x in get_line_count():
+        var line = get_line(x)
+        if "func " in line:
+            var res:RegExMatch = func_match.search(line)
+            if res:
+                var func_name:String = res.strings[1]
+                if not func_name in function_names:
+                    function_names.append(func_name)
+        if "var " in line:
+            var res:RegExMatch = var_match.search(line)
+            if res:
+                var var_name:String = res.strings[1]
+                if not var_name in variable_names:
+                    variable_names.append(var_name)
+
+
+func parse_local_variables():
+    pass
+
+
+func get_function_name(starting_line_number: int) -> String:
+    var current_line_number = starting_line_number
+    var function_name = ""
+    if not is_line_indented(starting_line_number):
+        return function_name
+    while current_line_number >= 0:
+        var line = get_line(current_line_number)
+        if not is_line_empty(current_line_number):
+            if not is_line_indented(current_line_number):
+                if line.find("func ") != -1:
+                    # Found the start of the function
+                    var parts = line.split("(")
+                    function_name = parts[0].replace("func ", "")
+                break
+        current_line_number -= 1
+    return function_name
+
+
+func is_line_indented(line_number:int)->bool:
+    var line = get_line(line_number)
+    if line.begins_with("  ") or line.begins_with("\t"):
+        return true
+    return false
+
+
+func is_line_empty(line_number:int):
+    var line = get_line(line_number)
+    for x in line.length():
+        var c = line[x]
+        if c != " " and c != "\t" and c != "\n" and c != "\r":
+            return false
+    return true
+
+
+func get_next_line(include_indented:bool=false, include_empty:bool=false):
+    var line_number:int = get_caret_line()
+    var x:int = line_number+1
+    while not x > get_line_count():
+        if (include_empty or not is_line_empty(x)) and (include_indented or not is_line_indented(x)):
+            return get_line(x)
+        x+=1
+    return ""
+
+
+func get_prev_line(include_indented:bool=false, include_empty:bool=false):
+    var line_number:int = get_caret_line()
+    var x:int = line_number-1
+    while not x < 0:
+        if (include_empty or not is_line_empty(x)) and (include_indented or not is_line_indented(x)):
+            return get_line(x)
+        x-=1
+    return ""
+
+
+func _on_code_completion_requested():
+    for each in function_names:
+        add_code_completion_option(CodeEdit.KIND_FUNCTION, each + " : function", each+"()", syntax_highlighter.function_color)
+    for each in variable_names:
+        add_code_completion_option(CodeEdit.KIND_VARIABLE, each + " : variable", each, syntax_highlighter.member_variable_color)
+    update_code_completion_options(true)
+    changed = true
+
+
+func _on_text_changed():
+    request_code_completion()
+    timer = 0.0
+
+
+func _on_caret_changed():
+    var line_number = get_caret_line()
+    if is_line_indented(line_number):
+        pass
+    #if function.length()>0:
+    #    scope_name = function
+    #    parse_local_variables()
+    #else:
+    #    scope_name = GLOBAL_SCOPE
+    print("current scope: ", scope_name)
